@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ScheduleStatus {
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+model Organization {
+  id             String           @id @default(uuid())
+  name           String
+  slug           String           @unique
+  brandSettings  Json?            @default("{}")
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  users          User[]
+  contentRequests ContentRequest[]
+  generatedTexts  GeneratedText[]
+  generatedImages GeneratedImage[]
+  schedules      Schedule[]
+  publicationLogs PublicationLog[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           UserRole     @default(VIEWER)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  contentRequests ContentRequest[]
+
+  @@unique([organizationId, email])
+  @@map("users")
+}
+
+model ContentRequest {
+  id             String          @id @default(uuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  topicInput     String
+  promptOverride String?
+  status         JobStatus      @default(PENDING)
+  createdAt      DateTime        @default(now())
+
+  generatedTexts  GeneratedText[]
+  generatedImages GeneratedImage[]
+
+  @@map("content_requests")
+}
+
+model GeneratedText {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestId      String
+  request        ContentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  headline       String?
+  bodyCopy       String
+  tokensUsed     Int?
+  modelVersion   String?
+  createdAt      DateTime       @default(now())
+
+  @@map("generated_text")
+}
+
+model GeneratedImage {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestId      String
+  request        ContentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  imageUrl       String
+  promptUsed     String?
+  stylePreset    String?
+  createdAt      DateTime       @default(now())
+
+  @@map("generated_images")
+}
+
+model Schedule {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contentId      String
+  platform       String
+  scheduledAt    DateTime
+  status         ScheduleStatus @default(SCHEDULED)
+  createdAt      DateTime       @default(now())
+  publicationLogs PublicationLog[]
+
+  @@map("schedules")
+}
+
+model PublicationLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scheduleId     String?
+  schedule       Schedule?    @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  success        Boolean
+  platformResponse Json?
+  errorMessage   String?
+  createdAt      DateTime     @default(now())
+
+  @@map("publication_logs")
+}
