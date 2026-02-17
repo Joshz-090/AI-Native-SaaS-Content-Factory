@@ -84,7 +84,7 @@ To prevent budget exhaustion, the platform implements a **Redis-backed Token Buc
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contributing 
 Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for benchmarks on engineering quality and PR standards.
 
 ## 📄 License
