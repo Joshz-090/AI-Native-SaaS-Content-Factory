@@ -1,77 +1,124 @@
 import { Worker, Job } from "bullmq";
 import { redisConnection } from "../lib/queue";
 import { generateContent } from "./ai";
-import prisma from "../lib/prisma";
-import { reserveCredits, refundCredits } from "../lib/quota";
+import { withTenantContext } from "../lib/prisma";
+import { reserveCredits } from "../lib/quota";
+
+console.log("⚡ Starting AI Content Factory BullMQ Worker pool...");
 
 export const contentWorker = new Worker(
   "content-generation",
   async (job: Job) => {
-    const { requestId, organizationId, topic } = job.data;
+    const { requestId, organizationId, topic, tone } = job.data;
 
-    // 0. Quota Check (Staff Enhancement)
-    const ESTIMATED_CREDITS = 1000; // Sample estimation
+    if (!organizationId) {
+      throw new Error(`[Worker] Job ${job.id} rejected: missing organizationId.`);
+    }
+
+    console.log(`[Worker] Processing Job ${job.id} for Org ${organizationId}: "${topic}"`);
+
+    // 1. Quota reservation check
+    const ESTIMATED_CREDITS = 1000;
     const hasQuota = await reserveCredits(organizationId, ESTIMATED_CREDITS);
-    
+
     if (!hasQuota) {
-      console.warn(`Org ${organizationId} has insufficient credits.`);
-      await prisma.contentRequest.update({
-        where: { id: requestId },
-        data: { status: "FAILED" },
-      });
-      return; // Job fails due to quota
+      console.warn(`[Worker] Org ${organizationId} has insufficient credits.`);
+      try {
+        if (requestId) {
+          await withTenantContext(organizationId, async (tx) => {
+            if ((tx as any).contentRequest?.update) {
+              await (tx as any).contentRequest.update({
+                where: { id: requestId },
+                data: { status: "FAILED" },
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.error("[Worker] Failed to update request status on quota fail:", err);
+      }
+      throw new Error(`Insufficient credits for organization ${organizationId}`);
     }
 
     try {
-      // 1. Update Request Status
-      await prisma.contentRequest.update({
-        where: { id: requestId },
-        data: { status: "PROCESSING" },
-      });
+      // 2. Mark processing in database
+      if (requestId) {
+        await withTenantContext(organizationId, async (tx) => {
+          if ((tx as any).contentRequest?.update) {
+            await (tx as any).contentRequest.update({
+              where: { id: requestId },
+              data: { status: "PROCESSING" },
+            });
+          }
+        });
+      }
 
-      // 2. Generate AI Content (Text + Image Prompt)
-      const aiResponse = await generateContent(topic);
+      // 3. Generate AI Content
+      const aiResponse = await generateContent(topic, tone);
 
-      // 3. Save Generated Text
-      await prisma.generatedText.create({
-        data: {
-          organizationId,
-          requestId,
-          headline: aiResponse.headline,
-          bodyCopy: aiResponse.body,
-          // tokensUsed: ..., 
-          modelVersion: "gemini-1.5-pro",
-        },
-      });
+      // 4. Save Generated Output under PostgreSQL RLS boundary
+      if (requestId) {
+        await withTenantContext(organizationId, async (tx) => {
+          if ((tx as any).generatedText?.create) {
+            await (tx as any).generatedText.create({
+              data: {
+                organizationId,
+                requestId,
+                headline: aiResponse.headline,
+                bodyCopy: aiResponse.body,
+                tokensUsed: aiResponse.tokensUsed,
+                modelVersion: aiResponse.modelVersion,
+              },
+            });
 
-      // 4. Save Generated Image (Metadata only for now)
-      await prisma.generatedImage.create({
-        data: {
-          organizationId,
-          requestId,
-          imageUrl: "https://via.placeholder.com/1024x1024.png?text=AI+Generated+Image", // Placeholder
-          promptUsed: aiResponse.imagePrompt,
-          stylePreset: "Photorealistic",
-        },
-      });
+            await (tx as any).generatedImage?.create({
+              data: {
+                organizationId,
+                requestId,
+                imageUrl: aiResponse.imageUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe",
+                promptUsed: aiResponse.imagePrompt,
+                stylePreset: "Photorealistic Enterprise",
+              },
+            });
 
-      // 5. Update Request Status to Completed
-      await prisma.contentRequest.update({
-        where: { id: requestId },
-        data: { status: "COMPLETED" },
-      });
+            await (tx as any).contentRequest?.update({
+              where: { id: requestId },
+              data: { status: "COMPLETED" },
+            });
+          }
+        });
+      }
 
-      console.log(`Job ${job.id} completed successfully for Org ${organizationId}`);
+      console.log(`[Worker] Job ${job.id} completed successfully for Org ${organizationId}`);
+      return aiResponse;
     } catch (error) {
-      console.error(`Job ${job.id} failed:`, error);
-      
-      await prisma.contentRequest.update({
-        where: { id: requestId },
-        data: { status: "FAILED" },
-      });
-      
-      throw error; // Let BullMQ handle retries
+      console.error(`[Worker] Job ${job.id} failed:`, error);
+
+      if (requestId) {
+        try {
+          await withTenantContext(organizationId, async (tx) => {
+            if ((tx as any).contentRequest?.update) {
+              await (tx as any).contentRequest.update({
+                where: { id: requestId },
+                data: { status: "FAILED" },
+              });
+            }
+          });
+        } catch (dbErr) {
+          console.error("[Worker] Failed to update error status in DB:", dbErr);
+        }
+      }
+
+      throw error; // Let BullMQ retry with exponential backoff
     }
   },
   { connection: redisConnection as any }
 );
+
+contentWorker.on("completed", (job) => {
+  console.log(`[BullMQ] Job ${job.id} completed.`);
+});
+
+contentWorker.on("failed", (job, err) => {
+  console.error(`[BullMQ] Job ${job?.id} failed with error:`, err.message);
+});
