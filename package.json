@@ -8,7 +8,8 @@
     "start": "next start",
     "worker": "tsx src/services/worker.ts",
     "lint": "eslint",
-    "test": "tsx tests/runner.ts"
+    "test": "tsx tests/runner.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.5",
