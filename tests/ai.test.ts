@@ -4,6 +4,7 @@ import {
   sanitizePrompt,
   parseAIJsonResponse,
   generateSynthesizedFallback,
+  generateContent,
 } from "../src/services/ai";
 
 describe("Part E: AI Generation and Sanitization", () => {
@@ -78,6 +79,18 @@ describe("Part E: AI Generation and Sanitization", () => {
       assert.ok(result.hashtags.length > 0);
       assert.ok(result.tokensUsed > 0);
       assert.ok(result.modelVersion.includes("fallback"));
+    });
+  });
+
+  describe("End-to-End Content Generation Pipeline", () => {
+    test("generateContent produces complete structured payload with headline and body", async () => {
+      const result = await generateContent("AI Infrastructure at Scale", "Technical Deep-Dive");
+      assert.ok(result);
+      assert.ok(typeof result.headline === "string" && result.headline.length > 0);
+      assert.ok(typeof result.body === "string" && result.body.length > 0);
+      assert.ok(Array.isArray(result.hashtags) && result.hashtags.length > 0);
+      assert.ok(typeof result.imagePrompt === "string" && result.imagePrompt.length > 0);
+      assert.ok(result.tokensUsed > 0);
     });
   });
 });

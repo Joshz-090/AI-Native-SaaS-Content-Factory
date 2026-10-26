@@ -8,7 +8,7 @@ export default function SettingsPage() {
   const [brandVoice, setBrandVoice] = useState(
     "Authoritative, forward-looking, enterprise-focused, data-backed with clear executive takeaways."
   );
-  const [modelChoice, setModelChoice] = useState("gemini-1.5-flash");
+  const [modelChoice, setModelChoice] = useState("gemini-3.5-flash-lite");
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -111,17 +111,17 @@ export default function SettingsPage() {
             </label>
 
             <label className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-              modelChoice === "gemini-1.5-flash"
+              modelChoice === "gemini-3.5-flash-lite"
                 ? "bg-indigo-950/40 border-indigo-500 text-white"
                 : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
             }`}>
               <div className="flex items-center justify-between">
-                <span className="font-bold text-xs text-white">Google Gemini 1.5 Flash</span>
+                <span className="font-bold text-xs text-white">Google Gemini 3.5 Flash Lite</span>
                 <input 
                   type="radio" 
                   name="model" 
-                  checked={modelChoice === "gemini-1.5-flash"} 
-                  onChange={() => setModelChoice("gemini-1.5-flash")}
+                  checked={modelChoice === "gemini-3.5-flash-lite"} 
+                  onChange={() => setModelChoice("gemini-3.5-flash-lite")}
                   className="accent-indigo-500" 
                 />
               </div>

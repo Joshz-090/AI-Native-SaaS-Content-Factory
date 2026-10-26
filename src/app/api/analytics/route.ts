@@ -34,7 +34,7 @@ export async function GET() {
       failedGenerations: failed,
       inFlight,
       averageLatencyMs: completed > 0 ? 1240 : 0,
-      activeModel: "gemini-1.5-flash",
+      activeModel: "gemini-3.5-flash-lite",
       p99LatencyMs: completed > 0 ? 2180 : 0,
       securityEventsBlocked: 0,
     },

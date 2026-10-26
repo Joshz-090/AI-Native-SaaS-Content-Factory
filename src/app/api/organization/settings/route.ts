@@ -16,7 +16,7 @@ function getDefaultSettings(orgId: string) {
   return {
     organizationId: orgId,
     brandVoice: "Authoritative, forward-looking, enterprise-focused, data-backed with clear executive takeaways.",
-    modelChoice: "gemini-1.5-flash",
+    modelChoice: "gemini-3.5-flash-lite",
     updatedAt: new Date().toISOString(),
   };
 }
