@@ -86,6 +86,22 @@ export function parseAIJsonResponse(rawText: string): Partial<GeneratedContentRe
 }
 
 /**
+ * Constructs an AI image generation URL powered by Pollinations AI
+ */
+export function buildPollinationsImageUrl(prompt: string): string {
+  const apiKey = process.env.POLLINATIONS_API_KEY || "sk_J17gLEuevHBfFsmv34OBCzFwoTNaaHPd";
+  const cleanPrompt = encodeURIComponent(
+    prompt.replace(/[^\w\s,.-]/g, "").trim().slice(0, 300)
+  );
+
+  if (apiKey) {
+    return `https://gen.pollinations.ai/image/${cleanPrompt}?width=1200&height=800&nologo=true&key=${apiKey}`;
+  }
+
+  return "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80";
+}
+
+/**
  * Enterprise Fallback Synthesizer for offline / dev mode without external API keys
  */
 export function generateSynthesizedFallback(topic: string, tone?: string): GeneratedContentResult {
@@ -115,7 +131,7 @@ What is your team's top priority as you navigate ${cleanTopic}? Let's connect an
 
   const imagePrompt = `High-end futuristic 3D architectural rendering symbolizing ${cleanTopic}, isometric abstract glass interfaces, indigo and deep cyber cyan lighting, cinematic volumetric lighting, 8k octane render.`;
 
-  const imageUrl = `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80`;
+  const imageUrl = buildPollinationsImageUrl(imagePrompt);
 
   return {
     headline,
@@ -123,7 +139,7 @@ What is your team's top priority as you navigate ${cleanTopic}? Let's connect an
     hashtags: tagList,
     imagePrompt,
     imageUrl,
-    modelVersion: "gemini-1.5-flash (deterministic offline fallback)",
+    modelVersion: "gemini-3.5-flash-lite (deterministic offline fallback)",
     tokensUsed: 642,
   };
 }
@@ -164,12 +180,15 @@ export async function generateContent(topic: string, tone?: string): Promise<Gen
       return generateSynthesizedFallback(sanitizedTopic, tone);
     }
 
+    const finalImagePrompt = parsed.imagePrompt || `Visual conceptual rendering for ${sanitizedTopic}`;
+    const imageUrl = buildPollinationsImageUrl(finalImagePrompt);
+
     return {
       headline: parsed.headline,
       body: parsed.body,
       hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : ["#AI", "#Enterprise"],
-      imagePrompt: parsed.imagePrompt || `Visual conceptual rendering for ${sanitizedTopic}`,
-      imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+      imagePrompt: finalImagePrompt,
+      imageUrl,
       modelVersion: "gemini-3.5-flash-lite",
       tokensUsed: 780,
     };
