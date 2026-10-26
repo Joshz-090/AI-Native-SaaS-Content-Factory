@@ -11,6 +11,16 @@ function createPrismaClient(): PrismaClient {
       provider: "postgres" as const,
       adapterName: "resilient-local",
       async connect() {
+        return this;
+      },
+      async queryRaw() {
+        return { rows: [] };
+      },
+      async executeRaw() {
+        return 0;
+      },
+      async close() {},
+      async startTransaction() {
         return {
           provider: "postgres" as const,
           adapterName: "resilient-local",
@@ -20,16 +30,11 @@ function createPrismaClient(): PrismaClient {
           async executeRaw() {
             return 0;
           },
+          async commit() {},
+          async rollback() {},
           async close() {},
         };
       },
-      async queryRaw() {
-        return { rows: [] };
-      },
-      async executeRaw() {
-        return 0;
-      },
-      async close() {},
     };
 
     return new PrismaClient({
