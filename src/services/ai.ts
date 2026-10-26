@@ -139,7 +139,7 @@ export async function generateContent(topic: string, tone?: string): Promise<Gen
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
 
     const prompt = `
       You are an enterprise content marketing expert.
@@ -170,7 +170,7 @@ export async function generateContent(topic: string, tone?: string): Promise<Gen
       hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : ["#AI", "#Enterprise"],
       imagePrompt: parsed.imagePrompt || `Visual conceptual rendering for ${sanitizedTopic}`,
       imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
-      modelVersion: "gemini-1.5-flash",
+      modelVersion: "gemini-3.5-flash-lite",
       tokensUsed: 780,
     };
   } catch (error) {
